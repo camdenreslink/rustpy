@@ -1,0 +1,6 @@
+[package]
+name = "rustpy"
+version = "0.1.0"
+authors = ["Camden Reslink <camdenreslink@gmail.com>"]
+
+[dependencies]
