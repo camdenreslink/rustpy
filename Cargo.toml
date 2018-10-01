@@ -1,6 +1,8 @@
-[package]
-name = "rustpy"
-version = "0.1.0"
-authors = ["Camden Reslink <camdenreslink@gmail.com>"]
+[workspace]
 
-[dependencies]
+members = [
+    "rustpy",
+    "rustpy_cli",
+    "rustpy_compiler",
+    "rustpy_interpreter"
+]

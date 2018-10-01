@@ -1,4 +1,23 @@
 [[package]]
 name = "rustpy"
 version = "0.1.0"
+dependencies = [
+ "rustpy_compiler 0.1.0",
+ "rustpy_interpreter 0.1.0",
+]
+
+[[package]]
+name = "rustpy_cli"
+version = "0.1.0"
+dependencies = [
+ "rustpy 0.1.0",
+]
+
+[[package]]
+name = "rustpy_compiler"
+version = "0.1.0"
+
+[[package]]
+name = "rustpy_interpreter"
+version = "0.1.0"
 
