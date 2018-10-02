@@ -24,19 +24,102 @@
 //! * [PEP 263](https://www.python.org/dev/peps/pep-0263/) - Defining Python Source Code Encodings
 //! * [PEP 3120](https://www.python.org/dev/peps/pep-3120/) - Using UTF-8 as the default source encoding
 //! 
-//! Links to CPython Source Code
-//! ----------------------------
+//! CPython Source Code
+//! -------------------
 //! 
 //! * [tokenizer.c](https://github.com/python/cpython/blob/master/Parser/tokenizer.c) - Parsing loop is in `tok_get` function.
 //! * [tokenizer.h](https://github.com/python/cpython/blob/master/Parser/tokenizer.h)
+//! * [token.h](https://github.com/python/cpython/blob/master/Include/token.h)
+//! * [tokenize.py](https://github.com/python/cpython/blob/master/Lib/tokenize.py)
+//! * [token.py](https://github.com/python/cpython/blob/master/Lib/token.py)
+//! 
+//! CPython Documentation
+//! ---------------------
+//! 
+//! * [https://docs.python.org/3/library/token.html](https://docs.python.org/3/library/token.html)
 //! 
 //! Additional Resources
 //! --------------------
 //! 
 //! * [Unicode Literals in Python Source Code](https://docs.python.org/3/howto/unicode.html#unicode-literals-in-python-source-code)
 //! * [The Guts of Unicode in Python - Video](https://pyvideo.org/pycon-us-2013/the-guts-of-unicode-in-python.html)
+//! * 
 //!  
 //! [^language-implementation-patterns-parr]: [Language Implementation Patterns](https://pragprog.com/book/tpdsl/language-implementation-patterns) by Terence Parr; Pattern 2: LL(1) Recursive-Descent Lexer
-pub fn tokenize() {
-    ()
+
+pub enum TokenType {
+    Ampersand,
+    AmpersandEqual,
+    At,
+    AtEqual,
+    Circumflex,
+    CircumflexEqual,
+    Colon,
+    Comma,
+    Comment,
+    Dedent,
+    Dot,
+    DoubleEqual,
+    DoubleSlash,
+    DoubleSlashEqual,
+    DoubleStar,
+    DoubleStarEqual,
+    Ellipsis,
+    Encoding,
+    EndMarker,
+    Equal,
+    ErrorToken,
+    Greater,
+    GreaterEqual,
+    Indent,
+    LeftSquareBracket,
+    LeftBrace,
+    LeftParenthesis,
+    LeftShift,
+    LeftShiftEqual,
+    Less,
+    LessEqual,
+    MinusEqual,
+    Minus,
+    Name,
+    NewlineContinuation,
+    NewlineLogical,
+    NotEqual,
+    Number,
+    Operator,
+    Percent,
+    PercentEqual,
+    Plus,
+    PlusEqual,
+    RightArrow,
+    RightBrace,
+    RParenthesis,
+    RightSquareBracket,
+    RightShift,
+    RightShiftEqual,
+    Semicolon,
+    Slash,
+    SlashEqual,
+    Star,
+    StarEqual,
+    String,
+    Tilde,
+    VerticalBar,
+    VerticalBarEqual
+}
+
+pub struct Token<'a> {
+    token_type: TokenType,
+    value: &'a str,
+}
+
+pub fn tokenize(source: &str) -> Vec<Token> {
+    for character in source.chars() {
+        
+    }
+    vec![]
+}
+
+pub fn untokenize(tokens: Vec<Token>) -> &str {
+    ""
 }
