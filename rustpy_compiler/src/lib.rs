@@ -1,6 +1,8 @@
-mod tokenizer;
-mod parser;
-mod ast;
+extern crate unicode_xid;
+
+pub mod ast;
+pub mod parser;
+pub mod tokenizer;
 
 #[cfg(test)]
 mod tests {
