@@ -78,24 +78,328 @@ impl<'a> Iterator for Tokenizer<'a> {
     // or NewlineLogical. So, not a true LL(1) recursive descent parser.
     fn next(&mut self) -> Option<Self::Item> {
         let next_source = &self.source[self.position..];
-        let characters: Vec<char> = next_source.chars().take(3).collect();
 
-        match characters.as_slice() {
-            [c1, _, _] if ignore_whitespace(c1) => self.next(),
-            ['#', _, _] => Some(token_generators::comment(next_source)),
-            [c1, _, _] if UnicodeXID::is_xid_start(*c1) => Some(token_generators::name(next_source)),
-            _ => None, //TODO: Add proper error handling!
+        // Mutability required to call `is_xid_start` on a character
+        let mut characters = next_source.chars().peekable();
+
+        match characters.next() {
+            Some(c) => match c {
+                ' ' | '\t' | '\x0C' => self.next(),
+                '#' => Some(token_generators::comment(next_source)),
+                ':' => Some(Token {
+                    token_type: TokenType::Colon,
+                    value: ":",
+                }),
+                ',' => Some(Token {
+                    token_type: TokenType::Comma,
+                    value: ",",
+                }),
+                '[' => Some(Token {
+                    token_type: TokenType::LeftSquareBracket,
+                    value: "[",
+                }),
+                '{' => Some(Token {
+                    token_type: TokenType::LeftBrace,
+                    value: "{",
+                }),
+                '(' => Some(Token {
+                    token_type: TokenType::LeftParenthesis,
+                    value: "(",
+                }),
+                ']' => Some(Token {
+                    token_type: TokenType::RightSquareBracket,
+                    value: "]",
+                }),
+                '}' => Some(Token {
+                    token_type: TokenType::RightBrace,
+                    value: "}",
+                }),
+                ')' => Some(Token {
+                    token_type: TokenType::RightParenthesis,
+                    value: ")",
+                }),
+                ';' => Some(Token {
+                    token_type: TokenType::Semicolon,
+                    value: ";",
+                }),
+                '~' => Some(Token {
+                    token_type: TokenType::Tilde,
+                    value: "~",
+                }),
+                '!' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::NotEqual,
+                            value: "!=",
+                        })
+                    }
+                    _ => panic!("TODO: Add actual error handling."),
+                },
+                '&' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::AmpersandEqual,
+                            value: "&=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Ampersand,
+                        value: "&",
+                    }),
+                },
+                '@' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::AtEqual,
+                            value: "@=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::At,
+                        value: "@",
+                    }),
+                },
+                '^' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::CircumflexEqual,
+                            value: "^=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Circumflex,
+                        value: "^",
+                    }),
+                },
+                '%' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::PercentEqual,
+                            value: "%=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Percent,
+                        value: "%",
+                    }),
+                },
+                '+' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::PlusEqual,
+                            value: "+=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Plus,
+                        value: "+",
+                    }),
+                },
+                '|' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::VerticalBarEqual,
+                            value: "|=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::VerticalBar,
+                        value: "|",
+                    }),
+                },
+                '=' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::DoubleEqual,
+                            value: "==",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Equal,
+                        value: "=",
+                    }),
+                },
+                '-' => match characters.peek() {
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::MinusEqual,
+                            value: "-=",
+                        })
+                    }
+                    Some('>') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::RightArrow,
+                            value: "->",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Minus,
+                        value: "-",
+                    }),
+                },
+                '>' => match characters.peek() {
+                    Some('>') => {
+                        characters.next();
+                        match characters.peek() {
+                            Some('=') => {
+                                characters.next();
+                                Some(Token {
+                                    token_type: TokenType::RightShiftEqual,
+                                    value: ">>=",
+                                })
+                            }
+                            _ => Some(Token {
+                                token_type: TokenType::RightShift,
+                                value: ">>",
+                            }),
+                        }
+                    }
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::GreaterEqual,
+                            value: ">=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Greater,
+                        value: ">",
+                    }),
+                },
+                '<' => match characters.peek() {
+                    Some('<') => {
+                        characters.next();
+                        match characters.peek() {
+                            Some('=') => {
+                                characters.next();
+                                Some(Token {
+                                    token_type: TokenType::LeftShiftEqual,
+                                    value: "<<=",
+                                })
+                            }
+                            _ => Some(Token {
+                                token_type: TokenType::LeftShift,
+                                value: "<<",
+                            }),
+                        }
+                    }
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::LessEqual,
+                            value: "<=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Less,
+                        value: "<",
+                    }),
+                },
+                '/' => match characters.peek() {
+                    Some('/') => {
+                        characters.next();
+                        match characters.peek() {
+                            Some('=') => {
+                                characters.next();
+                                Some(Token {
+                                    token_type: TokenType::DoubleSlashEqual,
+                                    value: "//=",
+                                })
+                            }
+                            _ => Some(Token {
+                                token_type: TokenType::DoubleSlash,
+                                value: "//",
+                            }),
+                        }
+                    }
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::SlashEqual,
+                            value: "/=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Slash,
+                        value: "/",
+                    }),
+                },
+                '*' => match characters.peek() {
+                    Some('*') => {
+                        characters.next();
+                        match characters.peek() {
+                            Some('=') => {
+                                characters.next();
+                                Some(Token {
+                                    token_type: TokenType::DoubleStarEqual,
+                                    value: "**=",
+                                })
+                            }
+                            _ => Some(Token {
+                                token_type: TokenType::DoubleStar,
+                                value: "**",
+                            }),
+                        }
+                    }
+                    Some('=') => {
+                        characters.next();
+                        Some(Token {
+                            token_type: TokenType::StarEqual,
+                            value: "*=",
+                        })
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Star,
+                        value: "*",
+                    }),
+                },
+                '.' => match characters.peek() {
+                    Some('.') => {
+                        characters.next();
+                        match characters.peek() {
+                            Some('.') => {
+                                characters.next();
+                                Some(Token {
+                                    token_type: TokenType::Ellipsis,
+                                    value: "...",
+                                })
+                            }
+                            _ => panic!("TODO: Add actual error handling."),
+                        }
+                    }
+                    Some(&c) if c.is_digit(10) => {
+                        characters.next();
+                        Some(token_generators::number(next_source))
+                    }
+                    _ => Some(Token {
+                        token_type: TokenType::Dot,
+                        value: ".",
+                    }),
+                },
+                c if c.is_digit(10) => Some(token_generators::number(next_source)),
+                c if UnicodeXID::is_xid_start(c) => Some(token_generators::name(next_source)),
+                _ => panic!("TODO: No character match! Add proper error handling!"),
+            },
+            None => Some(Token {
+                token_type: TokenType::EndMarker,
+                value: "",
+            }),
         }
     }
 }
 
 // Not sure how I want to organize this token matching code
-fn ignore_whitespace(c: &char) -> bool {
-    match c {
-        ' ' | '\t' | '\x0C' => true,
-        _ => false,
-    }
-}
+
 // End matching code section - TODO: Decide how to organize
 
 impl<'a> Tokenizer<'a> {
@@ -111,6 +415,55 @@ pub fn tokenize(source: &str) -> Vec<Token> {
     Tokenizer::new(source).collect()
 }
 
-pub fn untokenize(tokens: Vec<Token>) -> &str {
-    "" // TODO: Implement function body
+// pub fn untokenize(tokens: Vec<Token>) -> &str {
+//     "" // TODO: Implement function body
+// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ampersand_with_more_characters() {
+        let mut tokenizer = Tokenizer::new("&abcd");
+        let expected = Some(Token {
+            token_type: TokenType::Ampersand,
+            value: "&",
+        });
+        let actual = tokenizer.next();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn ampersand_last_character_in_source() {
+        let mut tokenizer = Tokenizer::new("&");
+        let expected = Some(Token {
+            token_type: TokenType::Ampersand,
+            value: "&",
+        });
+        let actual = tokenizer.next();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn ampersand_equal_with_more_characters() {
+        let mut tokenizer = Tokenizer::new("&=abcd");
+        let expected = Some(Token {
+            token_type: TokenType::AmpersandEqual,
+            value: "&=",
+        });
+        let actual = tokenizer.next();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn ampersand_equal_last_character_in_source() {
+        let mut tokenizer = Tokenizer::new("&=");
+        let expected = Some(Token {
+            token_type: TokenType::AmpersandEqual,
+            value: "&=",
+        });
+        let actual = tokenizer.next();
+        assert_eq!(expected, actual);
+    }
 }

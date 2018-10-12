@@ -1,63 +1,64 @@
 #[derive(PartialEq, Debug)]
 pub enum TokenType {
-    Ampersand,
-    AmpersandEqual,
-    At,
-    AtEqual,
-    Circumflex,
-    CircumflexEqual,
-    Colon,
-    Comma,
-    Comment,
+    // Temporary comments next to token type indicates that the token has been matched in tokenizer
+    Ampersand,       //
+    AmpersandEqual,  //
+    At,              //
+    AtEqual,         //
+    Circumflex,      //
+    CircumflexEqual, //
+    Colon,           //
+    Comma,           //
+    Comment,         //
     Dedent,
-    Dot,
-    DoubleEqual,
-    DoubleSlash,
-    DoubleSlashEqual,
-    DoubleStar,
-    DoubleStarEqual,
-    Ellipsis,
+    Dot,              //
+    DoubleEqual,      //
+    DoubleSlash,      //
+    DoubleSlashEqual, //
+    DoubleStar,       //
+    DoubleStarEqual,  //
+    Ellipsis,         //
     Encoding,
     EndMarker,
-    Equal,
+    Equal, //
     ErrorToken,
-    Greater,
-    GreaterEqual,
+    Greater,      //
+    GreaterEqual, //
     Indent,
-    LeftSquareBracket,
-    LeftBrace,
-    LeftParenthesis,
-    LeftShift,
-    LeftShiftEqual,
-    Less,
-    LessEqual,
-    MinusEqual,
-    Minus,
-    Name,
+    LeftSquareBracket, //
+    LeftBrace,         //
+    LeftParenthesis,   //
+    LeftShift,         //
+    LeftShiftEqual,    //
+    Less,              //
+    LessEqual,         //
+    MinusEqual,        //
+    Minus,             //
+    Name,              //
     NewlineContinuation,
     NewlineLogical,
-    NotEqual,
-    Number,
+    NotEqual, //
+    Number,   //
     Operator,
-    Percent,
-    PercentEqual,
-    Plus,
-    PlusEqual,
-    RightArrow,
-    RightBrace,
-    RParenthesis,
-    RightSquareBracket,
-    RightShift,
-    RightShiftEqual,
-    Semicolon,
-    Slash,
-    SlashEqual,
-    Star,
-    StarEqual,
+    Percent,            //
+    PercentEqual,       //
+    Plus,               //
+    PlusEqual,          //
+    RightArrow,         //
+    RightBrace,         //
+    RightParenthesis,   //
+    RightSquareBracket, //
+    RightShift,         //
+    RightShiftEqual,    //
+    Semicolon,          //
+    Slash,              //
+    SlashEqual,         //
+    Star,               //
+    StarEqual,          //
     String,
-    Tilde,
-    VerticalBar,
-    VerticalBarEqual,
+    Tilde,            //
+    VerticalBar,      //
+    VerticalBarEqual, //
 }
 
 #[derive(PartialEq, Debug)]

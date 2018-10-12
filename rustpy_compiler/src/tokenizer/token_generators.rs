@@ -20,6 +20,13 @@ pub fn name<'a>(source: &'a str) -> Token<'a> {
     }
 }
 
+pub fn number<'a>(source: &'a str) -> Token<'a> {
+    Token {
+        token_type: TokenType::Number,
+        value: "",
+    }
+}
+
 /// A fraction is a numeric literal that starts with a '.' character. For example: ".50053"
 pub fn fraction<'a>(source: &'a str) -> Token<'a> {
     let mut token_end_position = source.len();
