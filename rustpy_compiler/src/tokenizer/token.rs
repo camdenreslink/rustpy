@@ -1,64 +1,63 @@
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum TokenType {
-    // Temporary comments next to token type indicates that the token has been matched in tokenizer
-    Ampersand,       //
-    AmpersandEqual,  //
-    At,              //
-    AtEqual,         //
-    Circumflex,      //
-    CircumflexEqual, //
-    Colon,           //
-    Comma,           //
-    Comment,         //
-    Dedent,
-    Dot,              //
-    DoubleEqual,      //
-    DoubleSlash,      //
-    DoubleSlashEqual, //
-    DoubleStar,       //
-    DoubleStarEqual,  //
-    Ellipsis,         //
-    Encoding,
-    EndMarker,
-    Equal, //
-    ErrorToken,
-    Greater,      //
-    GreaterEqual, //
-    Indent,
-    LeftSquareBracket, //
-    LeftBrace,         //
-    LeftParenthesis,   //
-    LeftShift,         //
-    LeftShiftEqual,    //
-    Less,              //
-    LessEqual,         //
-    MinusEqual,        //
-    Minus,             //
-    Name,              //
+    Ampersand,
+    AmpersandEqual,
+    At,
+    AtEqual,
+    Circumflex,
+    CircumflexEqual,
+    Colon,
+    Comma,
+    Comment,
+    Dedent, //
+    Dot,
+    DoubleEqual,
+    DoubleSlash,
+    DoubleSlashEqual,
+    DoubleStar,
+    DoubleStarEqual,
+    Ellipsis,
+    Encoding, // Not sure if this token is actually required. All internal processing is in UTF-8
+    EndMarker, // Not sure if this token is actually required
+    Equal,
+    ErrorToken, //
+    Greater,
+    GreaterEqual,
+    Indent, //
+    LeftSquareBracket,
+    LeftBrace,
+    LeftParenthesis,
+    LeftShift,
+    LeftShiftEqual,
+    Less,
+    LessEqual,
+    MinusEqual,
+    Minus,
+    Name,
     NewlineContinuation,
     NewlineLogical,
-    NotEqual, //
+    NotEqual,
     Number,   //
-    Operator,
-    Percent,            //
-    PercentEqual,       //
-    Plus,               //
-    PlusEqual,          //
-    RightArrow,         //
-    RightBrace,         //
-    RightParenthesis,   //
-    RightSquareBracket, //
-    RightShift,         //
-    RightShiftEqual,    //
-    Semicolon,          //
-    Slash,              //
-    SlashEqual,         //
-    Star,               //
-    StarEqual,          //
-    String,
-    Tilde,            //
-    VerticalBar,      //
-    VerticalBarEqual, //
+    Operator, // This token appears to only be meaningfully used by tokenize.py, not tokenizer.c
+    Percent,
+    PercentEqual,
+    Plus,
+    PlusEqual,
+    RightArrow,
+    RightBrace,
+    RightParenthesis,
+    RightSquareBracket,
+    RightShift,
+    RightShiftEqual,
+    Semicolon,
+    Slash,
+    SlashEqual,
+    Star,
+    StarEqual,
+    String, //
+    Tilde,
+    VerticalBar,
+    VerticalBarEqual,
 }
 
 #[derive(PartialEq, Debug)]
