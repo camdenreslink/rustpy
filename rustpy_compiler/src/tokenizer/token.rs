@@ -17,10 +17,9 @@ pub enum TokenType {
     DoubleStar,
     DoubleStarEqual,
     Ellipsis,
-    Encoding, // Not sure if this token is actually required. All internal processing is in UTF-8
-    EndMarker, // Not sure if this token is actually required
+    Encoding,
+    EndMarker,
     Equal,
-    ErrorToken, //
     Greater,
     GreaterEqual,
     Indent, //
@@ -37,8 +36,7 @@ pub enum TokenType {
     NewlineContinuation,
     NewlineLogical,
     NotEqual,
-    Number,   //
-    Operator, // This token appears to only be meaningfully used by tokenize.py, not tokenizer.c
+    Number, //
     Percent,
     PercentEqual,
     Plus,
@@ -60,8 +58,9 @@ pub enum TokenType {
     VerticalBarEqual,
 }
 
+// Note: a compromise was made here in terms of memory usage. The value field of a Token struct will cause a memory allocation every time a token is generated due to its String type. If the token values were just pieces plucked out of the source string (as slices), the type could have been &'a str which would have saved many allocations in a large source file. The reason this was not possible, is because identifiers require NFKC unicode normalization, thus causing the source to be modified before being assigned as a token value. This causes a lifetime mismatch, because the modified string doesn't live as long as the source string. One way to fix this is to pass in a mutable buffer that outlives the tokenizer and collects the modified identifier strings. This way, allocations are only made for identifier tokens, and not all tokens (see: https://stackoverflow.com/a/38921366/9372178). Another approach is to add a new struct with fields for a string slice and some enum identifying transformations to be applied to the slice some time in the future. For most tokens it would be NoTransformation. That approach would basically punt the allocation down the road until the transformation actually needed to be applied (writing to byte code, or parse tree generation stage). For the sake of code simplicity, I just went with the extra allocations. However, if performance (or memory) becomes a problem these token string allocations could get refactored out by changing value from String to &'a str.
 #[derive(PartialEq, Debug)]
-pub struct Token<'a> {
+pub struct Token {
     pub token_type: TokenType,
-    pub value: &'a str,
+    pub value: String,
 }

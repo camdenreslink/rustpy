@@ -15,8 +15,8 @@
 //! CPython Source Code
 //! -------------------
 //!
-//! CPython Documentation
-//! ---------------------
+//! CPython Documentation/Bugs
+//! --------------------------
 //!
 //! Additional Resources
 //! --------------------

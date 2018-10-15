@@ -5,3 +5,4 @@ authors = ["Camden Reslink <camdenreslink@gmail.com>"]
 
 [dependencies]
 unicode-xid = "^0" # latest version < 1.0.0
+unicode-normalization = "^0" # latest version < 1.0.0
