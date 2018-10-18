@@ -57,6 +57,7 @@
 //!
 //! [^language-implementation-patterns-parr]: [Language Implementation Patterns](https://pragprog.com/book/tpdsl/language-implementation-patterns) by Terence Parr; Pattern 2: LL(1) Recursive-Descent Lexer
 
+use std::collections::VecDeque;
 use unicode_normalization::UnicodeNormalization;
 use unicode_xid::UnicodeXID;
 
@@ -117,6 +118,8 @@ const SIMPLE_TOKENS: [(&str, TokenType); 48] = [
     ("}", TokenType::RightBrace),
 ];
 
+const TAB_SIZE: u32 = 8;
+
 pub struct Tokenizer<'a> {
     /// The source string to be tokenized. A precondition of the
     /// tokenizer is that the source has been validated from an
@@ -138,7 +141,7 @@ pub struct Tokenizer<'a> {
     /// we can only return one. This token_buffer will store
     /// the others, and return them on subsequent calls to
     /// next().
-    pub token_buffer: Vec<Token>,
+    pub token_buffer: VecDeque<Token>,
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
@@ -157,7 +160,13 @@ impl<'a> Iterator for Tokenizer<'a> {
             return None;
         }
 
-        let mut characters = self.source[self.position..].chars().peekable();
+        // TODO: This is a bug, because the tokenizer state
+        //       doesn't get updated at the end of the next
+        //       call. Need to add another or_else chain.
+        // Return early if we have tokens buffered.
+        if !self.token_buffer.is_empty() {
+            return self.token_buffer.pop_front();
+        }
 
         // Check if the previous token was NewlineLogical
         // Indent tokens are only emitted when a new block is created (more indented)
@@ -170,27 +179,20 @@ impl<'a> Iterator for Tokenizer<'a> {
         // If this is the beginning of a logical line, calculate the indent/dedent tokens (if any)
         let indentation_token = match self.previous_token_type {
             Some(t) if t == TokenType::NewlineLogical => {
-                None
-            },
+                self.token_buffer = self.indentation();
+                self.token_buffer.pop_front()
+            }
             _ => None,
         };
 
-        // skip whitespace between tokens
-        // This peek-predicate-next pattern is required because
-        // the borrow checker doesn't support non-lexical borrowing.
-        // We can't peek(), check a condition on the char, and then
-        // next(), because it would cause multiple mutable borrows.
-        // See: https://stackoverflow.com/a/37509009/9372178
-        while let Some(true) = characters
-            .peek()
-            .map(|c: &char| *c == ' ' || *c == '\t' || *c == '\x0C')
-        {
-            self.position += 1; // All python source whitespace characters are 1 byte.
-            characters.next();
-        }
+        // Indentation has already been accounted for, so
+        // skip nonsignificant whitespace between tokens
+        self.position += self.whitespace_bytes();
 
         let token = indentation_token
             .or_else(|| {
+                let mut characters = self.source[self.position..].chars();
+
                 match characters.next()? {
                     '#' => self.comment(),
                     '\r' => match characters.next()? {
@@ -199,8 +201,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                     },
                     '\n' => self.newline("\n"),
                     // Number tokens must start with [0-9]+ or \.[0-9]+
-                    '.' => match characters.next() {
-                        Some(c) if c.is_digit(10) => self.number(),
+                    '.' => match characters.next()? {
+                        c if c.is_digit(10) => self.number(),
                         _ => None, // Postpone Dot token match for simple token matches
                     },
                     c if c.is_digit(10) => self.number(),
@@ -220,8 +222,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                 None
             });
 
-        // Update tokenizer state based on the resultant token
         match &token {
+            // Token was successfully matched!
+            // Update tokenizer state based on the resultant token.
             Some(unwrapped_token) => {
                 self.position += unwrapped_token.value.len();
                 match unwrapped_token.token_type {
@@ -231,6 +234,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     TokenType::RightBrace
                     | TokenType::RightParenthesis
                     | TokenType::RightSquareBracket => self.parentheses_level -= 1,
+                    // TODO: Match on indent/dedent, and add/remove from self.indentation_stack (must take diff of current value and only append the extra bits at the end for an indent)
                     _ => (),
                 };
                 self.previous_token_type = Some(unwrapped_token.token_type);
@@ -250,8 +254,106 @@ impl<'a> Tokenizer<'a> {
             parentheses_level: 0,
             previous_token_type: None,
             indentation_stack: Vec::new(),
-            token_buffer: Vec::new(),
+            token_buffer: VecDeque::new(),
         }
+    }
+
+    fn is_whitespace(character: char) -> bool {
+        match character {
+            ' ' | '\t' | '\x0c' => true,
+            _ => false,
+        }
+    }
+
+    fn indentation_level(indentation: &str) -> u32 {
+        indentation.chars().fold(0, |acc, c| {
+            match c {
+                c if c == ' ' => acc + 1,
+                c if c == '\t' => ((acc / self::TAB_SIZE) + 1) * self::TAB_SIZE, // Note: / is floor division here
+                // Choosing to not have form feed affect indentation level at all, diverging from
+                // CPython, which resets the indentation level to zero when form feed encountered.
+                c if c == '\x0c' => acc,
+                _ => panic!(
+                    "Encountered illegal characters while trying to calculate indentation level!"
+                ),
+            }
+        })
+    }
+
+    fn whitespace_bytes(&self) -> usize {
+        let mut number_of_bytes: usize = 0;
+
+        let mut characters = self.source[self.position..].chars();
+        while let Some(character) = characters.next() {
+            if Tokenizer::is_whitespace(character) {
+                number_of_bytes += character.len_utf8();
+            } else {
+                break;
+            }
+        }
+
+        number_of_bytes
+    }
+
+    fn indentation(&self) -> VecDeque<Token> {
+        let mut token_buffer = VecDeque::new();
+        let mut indentation_value = String::from("");
+
+        let mut characters = self.source[self.position..].chars().peekable();
+        while let Some(true) = characters
+            .peek()
+            .map(|character: &char| Tokenizer::is_whitespace(*character))
+        {
+            // We know .next() will return Some because we just peeked above.
+            if let Some(character) = characters.next() {
+                indentation_value.push(character);
+            }
+        }
+
+        let is_line_all_comment_or_whitespace = match characters.next() {
+            Some(character) => match character {
+                '#' | '\n' => true,
+                '\r' => match characters.next() {
+                    Some(character) if character == '\n' => true,
+                    _ => false, // '\r' by itself is not recognized as a newline in Python source
+                },
+                _ => false,
+            },
+            None => true, // Final line in source string, all whitespace
+        };
+
+        // No indent/dedent tokens should be generated if there is not indentation, or
+        // if the entire line is whitespace/comment. Return early.
+        if indentation_value.is_empty() || is_line_all_comment_or_whitespace {
+            return token_buffer; // empty at this point
+        }
+
+        let current_indentation_value = self.indentation_stack.join("");
+        let current_indentation_level = Tokenizer::indentation_level(&current_indentation_value);
+        let new_indentation_level = Tokenizer::indentation_level(&indentation_value);
+
+        if new_indentation_level == current_indentation_level {
+            if !indentation_value.starts_with(&current_indentation_value) {
+                panic!("TabError - Using an inconsistent mix of tabs and spaces!");
+            }
+        } else if new_indentation_level > current_indentation_level {
+            if !indentation_value.starts_with(&current_indentation_value) {
+                panic!("TabError - Using an inconsistent mix of tabs and spaces!");
+            }
+
+            token_buffer.push_front(Token {
+                token_type: TokenType::Indent,
+                value: indentation_value,
+            });
+        } else {
+            // new_indentation_level < current_indentation_level
+            if !current_indentation_value.starts_with(&indentation_value) {
+                panic!("TabError - Using an inconsistent mix of tabs and spaces!");
+            }
+            // TODO: Add dedents to token_buffer here
+        }
+
+        token_buffer
     }
 
     fn simple(&self, value: &'a str, token_type: TokenType) -> Option<Token> {
