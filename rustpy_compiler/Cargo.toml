@@ -2,6 +2,7 @@
 name = "rustpy_compiler"
 version = "0.1.0"
 authors = ["Camden Reslink <camdenreslink@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 unicode-xid = "^0" # latest version < 1.0.0
