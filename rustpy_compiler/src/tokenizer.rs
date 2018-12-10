@@ -121,82 +121,51 @@ const SIMPLE_TOKENS: [(&str, TokenType); 48] = [
 const TAB_SIZE: u32 = 8;
 
 pub struct Tokenizer<'a> {
-    /// The source string to be tokenized. A precondition of the
-    /// tokenizer is that the source has been validated from an
-    /// encoding perspective and converted to utf-8.
+    /// The source string to be tokenized. A precondition of the tokenizer is that the source has been validated from an encoding perspective and converted to utf-8.
     pub source: &'a str,
     /// The position (cursor) of the current tokenization in bytes.
     pub position: usize,
     pub parentheses_level: i32,
-    /// Previous token type must be tracked, because
-    /// it might affect which token gets generated. E.g.
-    /// whether whitespace should be considered indentation vs.
-    /// ignored intertoken spacing. This depends on if the
-    /// previous token was/wasn't a NewlineLogical token.
+    /// Previous token type must be tracked, because it might affect which token gets generated. E.g. whether whitespace should be considered indentation vs. ignored intertoken spacing. This depends on if the previous token was/wasn't a NewlineLogical token.
     pub previous_token_type: Option<TokenType>,
     pub indentation_stack: Vec<&'a str>,
-    /// If the next() tokenization generates multiple tokens,
-    /// (for example a single newline ending multiple block
-    /// scopes which generates multiple Dedent tokens)
-    /// we can only return one. This token_buffer will store
-    /// the others, and return them on subsequent calls to
-    /// next().
+    /// If the next() tokenization generates multiple tokens, (for example a single newline ending multiple block scopes which generates multiple Dedent tokens) we can only return one. This token_buffer will store the others, and return them on subsequent calls to next().
     pub token_buffer: VecDeque<Token>,
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token; // TODO: Change this to Result<Token, TokenError> to handle errors idiomatically (vs ErrorTokens used in CPython)
 
-    // There seem to actually be 2 scenarios when tokenizing,
-    // the beginning of a new logical line (which tokenizes identation)
-    // and any other type of token. How do we know if we aren't in a
-    // continuation line, or a legal multiline logical line (e.g. within
-    // parens). We need to keep track of a stack of brackets, braces, and parens,
-    // and look back one token to see if the previous token was a NewlineContinuation
-    // or NewlineLogical. So, not a true LL recursive descent parser.
     fn next(&mut self) -> Option<Self::Item> {
         // Return early if we've already completed the tokenization.
         if self.position >= self.source.len() {
             return None;
         }
 
-        // TODO: This is a bug, because the tokenizer state
-        //       doesn't get updated at the end of the next
-        //       call. Need to add another or_else chain.
-        // Return early if we have tokens buffered.
-        if !self.token_buffer.is_empty() {
-            return self.token_buffer.pop_front();
-        }
+        let buffered_token = self.token_buffer.pop_front();
 
-        // Check if the previous token was NewlineLogical
-        // Indent tokens are only emitted when a new block is created (more indented)
-        // Dedent tokens are only emitted when a new block is ended (less indented)
-        // You can only create one indent at a time.
-        // You can create multiple dedents at a time (you can end multiple blocks over a single newline)
-        // Need to add logic to handle lines that are all comments/whitespace. Shouldn't generate
-        // NewlineLogical, or care about indentation for those.
-
-        // If this is the beginning of a logical line, calculate the indent/dedent tokens (if any)
-        let indentation_token = match self.previous_token_type {
-            Some(t) if t == TokenType::NewlineLogical => {
-                self.token_buffer = self.indentation();
-                self.token_buffer.pop_front()
-            }
-            _ => None,
-        };
-
-        // Indentation has already been accounted for, so
-        // skip nonsignificant whitespace between tokens
-        self.position += self.whitespace_bytes();
-
-        let token = indentation_token
+        let token = buffered_token
+            .or_else(|| {
+                // If this is the beginning of a logical line, calculate the indent/dedent tokens (if any)
+                match self.previous_token_type {
+                    Some(TokenType::NewlineLogical) => {
+                        self.token_buffer = self.indentation();
+                        self.token_buffer.pop_front()
+                    }
+                    _ => {
+                        // skip insignificant whitespace between tokens
+                        self.position += self.whitespace_bytes();
+                        None
+                    },
+                }
+            })
             .or_else(|| {
                 let mut characters = self.source[self.position..].chars();
 
                 match characters.next()? {
                     '#' => self.comment(),
                     '\r' => match characters.next()? {
-                        c if c == '\n' => self.newline("\r\n"),
+                        '\n' => self.newline("\r\n"),
                         _ => None, // '\r' by itself is not recognized as a newline in Python source
                     },
                     '\n' => self.newline("\n"),
@@ -223,21 +192,9 @@ impl<'a> Iterator for Tokenizer<'a> {
             });
 
         match &token {
-            // Token was successfully matched!
-            // Update tokenizer state based on the resultant token.
+            // Token was successfully matched! Update tokenizer state based on the resultant token.
             Some(unwrapped_token) => {
-                self.position += unwrapped_token.value.len();
-                match unwrapped_token.token_type {
-                    TokenType::LeftBrace
-                    | TokenType::LeftParenthesis
-                    | TokenType::LeftSquareBracket => self.parentheses_level += 1,
-                    TokenType::RightBrace
-                    | TokenType::RightParenthesis
-                    | TokenType::RightSquareBracket => self.parentheses_level -= 1,
-                    // TODO: Match on indent/dedent, and add/remove from self.indentation_stack (must take diff of current value and only append the extra bits at the end for an indent)
-                    _ => (),
-                };
-                self.previous_token_type = Some(unwrapped_token.token_type);
+                self.update(unwrapped_token);
             }
             None => panic!("TODO: No token matches found! Add appropriate error handling here."),
         };
@@ -258,6 +215,21 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    fn update(&mut self, token: &Token) {
+        self.position += token.value.len();
+        match token.token_type {
+            TokenType::LeftBrace
+            | TokenType::LeftParenthesis
+            | TokenType::LeftSquareBracket => self.parentheses_level += 1,
+            TokenType::RightBrace
+            | TokenType::RightParenthesis
+            | TokenType::RightSquareBracket => self.parentheses_level -= 1,
+            // TODO: Match on indent/dedent, and add/remove from self.indentation_stack (must take diff of current value and only append the extra bits at the end for an indent)
+            _ => (),
+        };
+        self.previous_token_type = Some(token.token_type);
+    }
+
     fn is_whitespace(character: char) -> bool {
         match character {
             ' ' | '\t' | '\x0c' => true,
@@ -268,13 +240,12 @@ impl<'a> Tokenizer<'a> {
     fn indentation_level(indentation: &str) -> u32 {
         indentation.chars().fold(0, |acc, c| {
             match c {
-                c if c == ' ' => acc + 1,
-                c if c == '\t' => ((acc / self::TAB_SIZE) + 1) * self::TAB_SIZE, // Note: / is floor division here
-                // Choosing to not have form feed affect indentation level at all, diverging from
-                // CPython, which resets the indentation level to zero when form feed encountered.
-                c if c == '\x0c' => acc,
+                ' ' => acc + 1,
+                '\t' => ((acc / self::TAB_SIZE) + 1) * self::TAB_SIZE, // Note: / is floor division here
+                // Choosing to not have form feed affect indentation level at all, diverging from CPython which resets the indentation level to zero when a form feed is encountered.
+                '\x0c' => acc,
                 _ => panic!(
-                    "Encountered illegal characters while trying to calculate indentation level!"
+                    "Encountered illegal characters while trying to calculate indentation level! Only whitespace characters ' ', '\\t' and '\\x0c' (form feed) are allowed."
                 ),
             }
         })
@@ -322,8 +293,7 @@ impl<'a> Tokenizer<'a> {
             None => true, // Final line in source string, all whitespace
         };
 
-        // No indent/dedent tokens should be generated if there is not indentation, or
-        // if the entire line is whitespace/comment. Return early.
+        // Indent/Dedent tokens shouldn't be generated if there is no indentation, or if the entire line is whitespace/comment. Return early.
         if indentation_value.is_empty() || is_line_all_comment_or_whitespace {
             return token_buffer; // empty at this point
         }
@@ -375,12 +345,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn comment(&self) -> Option<Token> {
-        // Comments continue from any '#' character to a line
-        // break, or end of the file.
-        // Note, that tokenize.py returns an ErrorToken, whose
-        // value is the entire comment if the comment contains
-        // a \r with no subsequent \n. This doesn't follow that
-        // implementation detail.
+        // Comments continue from any '#' character until a line break, or end of the file. Note, that tokenize.py returns an ErrorToken, whose value is the entire comment if the comment contains a \r with no subsequent \n. This doesn't follow that implementation detail.
         let next_source = &self.source[self.position..];
         // TODO: Need to change to walking through char style. If the file has mixed line endings (which CPython supports), then this will fail.
         // Needs to follow similar format to name()
@@ -424,8 +389,7 @@ impl<'a> Tokenizer<'a> {
                     break &self.source[self.position..(self.position + byte_index)];
                 }
             } else {
-                // This is the case that the name token goes until the end
-                // of the source string with no trailing line break.
+                // This is the case that the name token goes until the end of the source string with no trailing line break.
                 break &self.source[self.position..];
             }
         };
@@ -453,47 +417,6 @@ pub fn tokenize(source: &str) -> Vec<Token> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn dummy() {
-        let mut tokenizer =
-            Tokenizer::new("def some_func():\n    x = some_var #this is a comment\n    return x");
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.next());
-
-        assert!(true);
-    }
-
-    #[test]
-    fn ops() {
-        let mut tokenizer = Tokenizer::new("def some_func():");
-        println!("{:?}", tokenizer.position);
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.position);
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.position);
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.position);
-        println!("{:?}", tokenizer.next());
-        println!("{:?}", tokenizer.position);
-        println!("{:?}", tokenizer.next());
-
-        assert!(true);
-    }
 
     #[test]
     fn simple_token_three_chars_exact_match() {
