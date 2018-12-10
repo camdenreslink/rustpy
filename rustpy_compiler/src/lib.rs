@@ -1,6 +1,3 @@
-extern crate unicode_normalization;
-extern crate unicode_xid;
-
 pub mod ast;
 pub mod parser;
 pub mod tokenizer;
