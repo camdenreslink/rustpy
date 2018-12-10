@@ -346,26 +346,32 @@ impl<'a> Tokenizer<'a> {
 
     fn comment(&self) -> Option<Token> {
         // Comments continue from any '#' character until a line break, or end of the file. Note, that tokenize.py returns an ErrorToken, whose value is the entire comment if the comment contains a \r with no subsequent \n. This doesn't follow that implementation detail.
-        let next_source = &self.source[self.position..];
-        // TODO: Need to change to walking through char style. If the file has mixed line endings (which CPython supports), then this will fail.
-        // Needs to follow similar format to name()
-        if let Some(byte_index) = next_source.find("\r\n") {
-            Some(Token {
-                token_type: TokenType::Comment,
-                value: String::from(&self.source[self.position..(self.position + byte_index)]),
-            })
-        } else if let Some(byte_index) = next_source.find("\n") {
-            Some(Token {
-                token_type: TokenType::Comment,
-                value: String::from(&self.source[self.position..(self.position + byte_index)]),
-            })
-        } else {
-            // In this case, the comment goes until the end of the source string with no trailing line break.
-            Some(Token {
-                token_type: TokenType::Comment,
-                value: String::from(&self.source[self.position..]),
-            })
-        }
+
+        let mut characters = self.source[self.position..].char_indices();
+        let value = loop {
+            let candidate_comment_value = match characters.next() {
+                Some((byte_index, '\n')) => 
+                    Some(&self.source[self.position..(self.position + byte_index)]),
+                Some((byte_index, '\r')) =>
+                    match characters.next() {
+                        Some((_, '\n')) => 
+                            Some(&self.source[self.position..(self.position + byte_index)]),
+                        _ => None,
+                    },
+                Some(_) => None,
+                // This is the case that the comment token goes until the end of the source string with no trailing line break.
+                None => Some(&self.source[self.position..]),
+            };
+
+            if let Some(comment_value) = candidate_comment_value {
+                break String::from(comment_value);
+            }
+        };
+
+        Some(Token {
+            token_type: TokenType::Comment,
+            value,
+        })
     }
 
     fn newline(&self, value: &'a str) -> Option<Token> {
